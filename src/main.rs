@@ -1,8 +1,10 @@
 use iced::{button, Alignment, Application, Button, Column, Command, Element, Settings, Text};
+mod backend;
 fn main() -> iced::Result {
     Counter::run(Settings::default())
 }
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use backend::start;
+use tokio::sync::mpsc::{channel, Sender};
 //#[derive(Default)]
 struct Counter {
     io_tx: Sender<Events>,
@@ -27,7 +29,7 @@ impl Counter {
     }
 }
 #[derive(Debug, Clone, Copy)]
-enum Events {
+pub enum Events {
     Log,
     Say,
 }
@@ -38,7 +40,7 @@ enum Message {
     IncrementPressed,
     DecrementPressed,
     Docommand(Events),
-    SendDone(bool),
+    SendDone,
 }
 
 impl Application for Counter {
@@ -76,12 +78,11 @@ impl Application for Counter {
                 return Command::perform(
                     async move {
                         io_tx.send(command).await.unwrap();
-                        true
                     },
-                    Message::SendDone,
+                    |_| Message::SendDone,
                 );
             }
-            Message::SendDone(_) => {}
+            Message::SendDone => {}
         }
         Command::none()
     }
@@ -118,20 +119,4 @@ impl Application for Counter {
 async fn update(input: i32) -> i32 {
     tokio::time::sleep(tokio::time::Duration::from_secs(input as u64)).await;
     (input + 1) * 2
-}
-async fn start(mut input: Receiver<Events>) -> i32 {
-    tokio::spawn(async move {
-        loop {
-            match input.recv().await {
-                Some(Events::Log) => {
-                    println!("Log");
-                }
-                Some(Events::Say) => {
-                    println!("Hello");
-                }
-                None => {}
-            }
-        }
-    });
-    0
 }
