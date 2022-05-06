@@ -1,5 +1,5 @@
-use tokio::sync::mpsc:: Receiver;
 use super::Events;
+use tokio::sync::mpsc::Receiver;
 pub async fn start(mut input: Receiver<Events>) -> i32 {
     tokio::spawn(async move {
         loop {

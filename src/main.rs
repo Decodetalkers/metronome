@@ -1,12 +1,17 @@
-use iced::{button, Alignment, Application, Button, Column, Command, Element, Settings, Text};
+use iced::{
+    button, Alignment, Application, Button, Column, Command, Element, Row, Settings, Space, Text,
+};
 mod backend;
+mod page;
 fn main() -> iced::Result {
     Counter::run(Settings::default())
 }
 use backend::start;
+use page::{StepMessage, Steps};
 use tokio::sync::mpsc::{channel, Sender};
 //#[derive(Default)]
 struct Counter {
+    steps: Steps,
     io_tx: Sender<Events>,
     value: i32,
     increment_button: button::State,
@@ -14,10 +19,13 @@ struct Counter {
     jump_button: button::State,
     log_button: button::State,
     say_button: button::State,
+    back_button: button::State,
+    font_button: button::State,
 }
 impl Counter {
     fn new(sender: Sender<Events>) -> Self {
         Counter {
+            steps: Steps::new(),
             io_tx: sender,
             value: 0,
             increment_button: button::State::default(),
@@ -25,6 +33,8 @@ impl Counter {
             jump_button: button::State::default(),
             log_button: button::State::default(),
             say_button: button::State::default(),
+            back_button: button::State::default(),
+            font_button: button::State::default(),
         }
     }
 }
@@ -34,14 +44,22 @@ pub enum Events {
     Say,
 }
 #[derive(Debug, Clone)]
-enum Message {
+pub enum Arrow {
+    Front,
+    Back,
+}
+#[derive(Debug, Clone)]
+pub enum Message {
     JumpIncreasePressed(i32),
     EndIncreasePressed(i32),
     IncrementPressed,
     DecrementPressed,
     Docommand(Events),
     SendDone,
+    StepMessage(StepMessage),
+    Go(Arrow),
 }
+
 
 impl Application for Counter {
     type Message = Message;
@@ -61,6 +79,13 @@ impl Application for Counter {
 
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
+            Message::Go(arrow) => match arrow {
+                Arrow::Back => self.steps.preview(),
+                Arrow::Front => self.steps.next(),
+            },
+            Message::StepMessage(message) => {
+                self.steps.update(message);
+            }
             Message::JumpIncreasePressed(number) => {
                 return Command::perform(update(number), Message::EndIncreasePressed);
             }
@@ -88,6 +113,23 @@ impl Application for Counter {
     }
 
     fn view(&mut self) -> Element<Message> {
+        let (pre, bak, col) = self.steps.viewmessages();
+        let mut controls = Row::new();
+        if bak {
+            controls = controls.push(
+                Button::new(&mut self.back_button, Text::new("back"))
+                    .on_press(Message::Go(Arrow::Back)),
+            );
+        }
+        controls = controls.push(Space::with_width(iced::Length::Fill));
+        if pre {
+            //let mut state = button::State::default();
+            controls = controls.push(
+                Button::new(&mut self.font_button, Text::new("Go"))
+                    .on_press(Message::Go(Arrow::Front)),
+            );
+        }
+
         Column::new()
             .padding(20)
             .align_items(Alignment::Center)
@@ -112,6 +154,8 @@ impl Application for Counter {
                 Button::new(&mut self.say_button, Text::new("Say"))
                     .on_press(Message::Docommand(Events::Say)),
             )
+            .push(col)
+            .push(controls)
             .width(iced::Length::Fill)
             .into()
     }
