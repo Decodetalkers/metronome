@@ -1,6 +1,6 @@
 use iced::{
-    button, slider, Alignment, Application, Button, Color, Column, Command, Element, Row, Settings,
-    Slider, Text,
+    button, slider, Alignment, Application, Button, Color, Column, Command, Container, Element,
+    Row, Settings, Slider, Text,
 };
 
 //use iced::{text_input, TextInput};
@@ -9,7 +9,7 @@ fn main() -> iced::Result {
     //Counter::run(Settings::default())
 }
 //#[derive(Default)]
-struct Metronome{
+struct Metronome {
     ticks: u64,
     start: bool,
     left: bool,
@@ -120,85 +120,95 @@ impl Application for Metronome {
     }
 
     fn view(&mut self) -> Element<PollMessage> {
-        Column::new()
-            .padding(20)
-            .align_items(Alignment::Center)
-            .push(
-                Row::new()
-                    .push(
-                        Text::new(format!("Ticks = {}", self.ticks))
-                            .width(iced::Length::Fill)
-                            .size(30),
-                    )
-                    .push(
-                        Button::new(&mut self.decrease_button, Text::new(" -").size(20))
-                            .on_press(PollMessage::Decrease),
-                    )
-                    .push(
-                        Slider::new(
-                            &mut self.slider,
-                            1.0..=1000.0,
-                            self.ticks as f32,
-                            PollMessage::Update,
+        Container::new(
+            Column::new()
+                .spacing(30)
+                .padding(20)
+                .max_width(540)
+                .align_items(Alignment::Center)
+                .push(Text::new("Metronome").size(60))
+                .push(
+                    Row::new()
+                        .spacing(10)
+                        .push(
+                            Button::new(&mut self.decrease_button, Text::new(" -").size(20))
+                                .on_press(PollMessage::Decrease)
+                                .style(style::Button::Liner),
                         )
-                        .step(1.0)
-                        .width(iced::Length::Fill)
-                        .height(25),
-                    )
-                    .push(
-                        Button::new(&mut self.add_button, Text::new("+").size(20))
-                            .on_press(PollMessage::Add),
-                    ),
-            )
-            .push(
-                Button::new(
-                    &mut self.start_button,
-                    if self.start {
-                        Text::new("Stop").size(60)
-                    } else {
-                        Text::new("Start").size(60)
-                    },
+                        .push(
+                            Slider::new(
+                                &mut self.slider,
+                                1.0..=1000.0,
+                                self.ticks as f32,
+                                PollMessage::Update,
+                            )
+                            .step(1.0)
+                            .width(iced::Length::Fill)
+                            .height(30),
+                        )
+                        .push(
+                            Button::new(&mut self.add_button, Text::new("+").size(20))
+                                .on_press(PollMessage::Add)
+                                .style(style::Button::Liner),
+                        ),
                 )
-                .on_press(if self.start {
-                    PollMessage::Stop
-                } else {
-                    PollMessage::Start
-                })
-                .width(iced::Length::Shrink)
-                .style(style::Button::Primary),
-            )
-            .push(
-                Row::new()
-                    .push(block::Block::new(
-                        100.0,
-                        if self.left {
-                            Color::BLACK
+                .push(Text::new(format!("{} BPM", self.ticks)).size(50))
+                .push(
+                    Button::new(
+                        &mut self.start_button,
+                        if self.start {
+                            Text::new("Stop").size(60)
                         } else {
-                            Color::from_rgb(0.9, 0.8, 0.5)
+                            Text::new("Start").size(60)
                         },
-                    ))
-                    .push(block::Block::new(
-                        100.0,
-                        if !self.left {
-                            Color::BLACK
-                        } else {
-                            Color::from_rgb(0.9, 0.8, 0.5)
-                        },
-                    )),
-            )
-            .into()
+                    )
+                    .on_press(if self.start {
+                        PollMessage::Stop
+                    } else {
+                        PollMessage::Start
+                    })
+                    .width(iced::Length::Shrink)
+                    .style(style::Button::Primary),
+                )
+                .push(
+                    Row::new()
+                        .push(block::Block::new(
+                            100.0,
+                            if self.left {
+                                Color::BLACK
+                            } else {
+                                Color::from_rgb(0.9, 0.8, 0.9)
+                            },
+                        ))
+                        .push(block::Block::new(
+                            100.0,
+                            if !self.left {
+                                Color::BLACK
+                            } else {
+                                Color::from_rgb(0.9, 0.8, 0.9)
+                            },
+                        )),
+                ),
+        )
+        .height(iced::Length::Fill)
+        .width(iced::Length::Fill)
+        .center_y()
+        .center_x()
+        .into()
     }
 }
 mod style {
     use iced::{button, Background, Color, Vector};
     pub enum Button {
         Primary,
+        Liner,
     }
     impl button::StyleSheet for Button {
         fn active(&self) -> button::Style {
             button::Style {
                 background: Some(Background::Color(match self {
                     Button::Primary => Color::from_rgb(0.11, 0.42, 0.87),
+                    Button::Liner => Color::from_rgb(0.9, 0.7, 0.8),
                 })),
                 border_radius: 12.0,
                 shadow_offset: Vector::new(1.0, 1.0),
