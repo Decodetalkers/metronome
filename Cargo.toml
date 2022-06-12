@@ -1,5 +1,5 @@
 [package]
-name = "iced_learn"
+name = "metronome"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,3 +10,4 @@ iced = {version = "0.4.1",features = ["tokio"]}
 iced_native = "0.5.0"
 tokio = { version = "1.0", features = ["full"] }
 iced_futures = "0.4.0"
+rodio = "0.15.0"

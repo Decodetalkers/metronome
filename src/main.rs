@@ -1,166 +1,272 @@
 use iced::{
-    button, Alignment, Application, Button, Column, Command, Element, Row, Settings, Space, Text,
+    button, slider, Alignment, Application, Button, Color, Column, Command, Element, Row, Settings,
+    Slider, Text,
 };
-mod backend;
-mod page;
+
+//use iced::{text_input, TextInput};
 fn main() -> iced::Result {
-    Counter::run(Settings::default())
+    Metronome::run(Settings::default())
+    //Counter::run(Settings::default())
 }
-use backend::start;
-use page::{StepMessage, Steps};
-use tokio::sync::mpsc::{channel, Sender};
 //#[derive(Default)]
-struct Counter {
-    steps: Steps,
-    io_tx: Sender<Events>,
-    value: i32,
-    increment_button: button::State,
-    decrement_button: button::State,
-    jump_button: button::State,
-    log_button: button::State,
-    say_button: button::State,
-    back_button: button::State,
-    font_button: button::State,
+struct Metronome{
+    ticks: u64,
+    start: bool,
+    left: bool,
+    start_button: button::State,
+    add_button: button::State,
+    decrease_button: button::State,
+    slider: slider::State,
+    //text: text_input::State,
 }
-impl Counter {
-    fn new(sender: Sender<Events>) -> Self {
-        Counter {
-            steps: Steps::new(),
-            io_tx: sender,
-            value: 0,
-            increment_button: button::State::default(),
-            decrement_button: button::State::default(),
-            jump_button: button::State::default(),
-            log_button: button::State::default(),
-            say_button: button::State::default(),
-            back_button: button::State::default(),
-            font_button: button::State::default(),
+#[derive(Debug, Clone)]
+pub enum PollMessage {
+    Start,
+    Continue,
+    Update(f32),
+    Add,
+    Decrease,
+    Stop,
+}
+impl Metronome {
+    fn new() -> Self {
+        Metronome {
+            ticks: 100,
+            start: false,
+            left: true,
+            start_button: button::State::default(),
+            add_button: button::State::default(),
+            decrease_button: button::State::default(),
+            slider: slider::State::default(),
+            //text: text_input::State::default(),
         }
     }
 }
-#[derive(Debug, Clone, Copy)]
-pub enum Events {
-    Log,
-    Say,
-}
-#[derive(Debug, Clone)]
-pub enum Arrow {
-    Front,
-    Back,
-}
-#[derive(Debug, Clone)]
-pub enum Message {
-    JumpIncreasePressed(i32),
-    EndIncreasePressed(i32),
-    IncrementPressed,
-    DecrementPressed,
-    Docommand(Events),
-    SendDone,
-    StepMessage(StepMessage),
-    Go(Arrow),
-}
-
-
-impl Application for Counter {
-    type Message = Message;
+impl Application for Metronome {
+    type Message = PollMessage;
     type Executor = iced::executor::Default;
     type Flags = ();
-    fn new(_flags: ()) -> (Counter, Command<Message>) {
-        let (sync_io_tx, sync_io_rx) = channel::<Events>(100);
-        (
-            Self::new(sync_io_tx),
-            Command::perform(start(sync_io_rx), Message::JumpIncreasePressed),
-        )
+    fn new(_flags: ()) -> (Metronome, Command<PollMessage>) {
+        (Self::new(), Command::none())
     }
 
     fn title(&self) -> String {
-        String::from("Counter - Iced")
+        String::from("Metronome")
     }
 
-    fn update(&mut self, message: Message) -> Command<Message> {
+    // message get from background
+    fn update(&mut self, message: PollMessage) -> Command<PollMessage> {
+        //if self.start {
         match message {
-            Message::Go(arrow) => match arrow {
-                Arrow::Back => self.steps.preview(),
-                Arrow::Front => self.steps.next(),
-            },
-            Message::StepMessage(message) => {
-                self.steps.update(message);
+            PollMessage::Update(ticks) => {
+                self.ticks = ticks as u64;
+                Command::none()
             }
-            Message::JumpIncreasePressed(number) => {
-                return Command::perform(update(number), Message::EndIncreasePressed);
-            }
-            Message::EndIncreasePressed(number) => {
-                self.value += number;
-            }
-            Message::IncrementPressed => {
-                self.value += 1;
-            }
-            Message::DecrementPressed => {
-                self.value -= 1;
-            }
-            Message::Docommand(command) => {
-                let io_tx = self.io_tx.clone();
-                return Command::perform(
+            PollMessage::Start => {
+                let time = self.ticks;
+                self.start = true;
+                self.left = !self.left;
+                Command::perform(
                     async move {
-                        io_tx.send(command).await.unwrap();
+                        tokio::time::sleep(tokio::time::Duration::from_nanos(time)).await;
                     },
-                    |_| Message::SendDone,
-                );
+                    |_| PollMessage::Continue,
+                )
             }
-            Message::SendDone => {}
+            PollMessage::Add => {
+                if self.ticks < 1000 {
+                    self.ticks += 1;
+                }
+                Command::none()
+            }
+            PollMessage::Decrease => {
+                if self.ticks > 1 {
+                    self.ticks -= 1;
+                }
+                Command::none()
+            }
+            PollMessage::Continue => {
+                let (_stream, handle) = rodio::OutputStream::try_default().unwrap();
+                let sink = rodio::Sink::try_new(&handle).unwrap();
+
+                let file = std::fs::File::open("assets/metronome.wav").unwrap();
+                let a = std::io::BufReader::new(file);
+                sink.append(rodio::Decoder::new(a).unwrap());
+
+                sink.sleep_until_end();
+                let time = self.ticks;
+                self.left = !self.left;
+                if self.start {
+                    Command::perform(
+                        async move {
+                            //println!("Start");
+                            tokio::time::sleep(tokio::time::Duration::from_millis(time)).await;
+                        },
+                        |_| PollMessage::Continue,
+                    )
+                } else {
+                    Command::none()
+                }
+            }
+            PollMessage::Stop => {
+                //println!("Stop");
+                self.start = false;
+                Command::none()
+            }
         }
-        Command::none()
+        //} else {
+        //    Command::none()
+        //}
     }
 
-    fn view(&mut self) -> Element<Message> {
-        let (pre, bak, col) = self.steps.viewmessages();
-        let mut controls = Row::new();
-        if bak {
-            controls = controls.push(
-                Button::new(&mut self.back_button, Text::new("back"))
-                    .on_press(Message::Go(Arrow::Back)),
-            );
-        }
-        controls = controls.push(Space::with_width(iced::Length::Fill));
-        if pre {
-            //let mut state = button::State::default();
-            controls = controls.push(
-                Button::new(&mut self.font_button, Text::new("Go"))
-                    .on_press(Message::Go(Arrow::Front)),
-            );
-        }
-
+    fn view(&mut self) -> Element<PollMessage> {
         Column::new()
             .padding(20)
             .align_items(Alignment::Center)
             .push(
-                Button::new(&mut self.increment_button, Text::new("Increment"))
-                    .on_press(Message::IncrementPressed),
+                Row::new()
+                    .push(
+                        Text::new(format!("Ticks = {}", self.ticks))
+                            .width(iced::Length::Fill)
+                            .size(30),
+                    )
+                    .push(
+                        Button::new(&mut self.decrease_button, Text::new(" -").size(20))
+                            .on_press(PollMessage::Decrease),
+                    )
+                    .push(
+                        Slider::new(
+                            &mut self.slider,
+                            1.0..=1000.0,
+                            self.ticks as f32,
+                            PollMessage::Update,
+                        )
+                        .step(1.0)
+                        .width(iced::Length::Fill)
+                        .height(25),
+                    )
+                    .push(
+                        Button::new(&mut self.add_button, Text::new("+").size(20))
+                            .on_press(PollMessage::Add),
+                    ),
             )
-            .push(Text::new(self.value.to_string()).size(50))
             .push(
-                Button::new(&mut self.decrement_button, Text::new("Decrement"))
-                    .on_press(Message::DecrementPressed),
+                Button::new(
+                    &mut self.start_button,
+                    if self.start {
+                        Text::new("Stop").size(60)
+                    } else {
+                        Text::new("Start").size(60)
+                    },
+                )
+                .on_press(if self.start {
+                    PollMessage::Stop
+                } else {
+                    PollMessage::Start
+                })
+                .width(iced::Length::Shrink)
+                .style(style::Button::Primary),
             )
             .push(
-                Button::new(&mut self.jump_button, Text::new("Jump"))
-                    .on_press(Message::JumpIncreasePressed(self.value)),
+                Row::new()
+                    .push(block::Block::new(
+                        100.0,
+                        if self.left {
+                            Color::BLACK
+                        } else {
+                            Color::from_rgb(0.9, 0.8, 0.5)
+                        },
+                    ))
+                    .push(block::Block::new(
+                        100.0,
+                        if !self.left {
+                            Color::BLACK
+                        } else {
+                            Color::from_rgb(0.9, 0.8, 0.5)
+                        },
+                    )),
             )
-            .push(
-                Button::new(&mut self.log_button, Text::new("Log"))
-                    .on_press(Message::Docommand(Events::Log)),
-            )
-            .push(
-                Button::new(&mut self.say_button, Text::new("Say"))
-                    .on_press(Message::Docommand(Events::Say)),
-            )
-            .push(col)
-            .push(controls)
-            .width(iced::Length::Fill)
             .into()
     }
 }
-async fn update(input: i32) -> i32 {
-    tokio::time::sleep(tokio::time::Duration::from_secs(input as u64)).await;
-    (input + 1) * 2
+mod style {
+    use iced::{button, Background, Color, Vector};
+    pub enum Button {
+        Primary,
+    }
+    impl button::StyleSheet for Button {
+        fn active(&self) -> button::Style {
+            button::Style {
+                background: Some(Background::Color(match self {
+                    Button::Primary => Color::from_rgb(0.11, 0.42, 0.87),
+                })),
+                border_radius: 12.0,
+                shadow_offset: Vector::new(1.0, 1.0),
+                text_color: Color::WHITE,
+                ..button::Style::default()
+            }
+        }
+    }
+}
+
+mod block {
+    use iced_native::layout::{self, Layout};
+    use iced_native::renderer;
+    use iced_native::{Color, Element, Length, Point, Rectangle, Size, Widget};
+
+    pub struct Block {
+        radius: f32,
+        color: Color,
+    }
+
+    impl Block {
+        pub fn new(radius: f32, color: Color) -> Self {
+            Self { radius, color }
+        }
+    }
+
+    impl<Message, Renderer> Widget<Message, Renderer> for Block
+    where
+        Renderer: renderer::Renderer,
+    {
+        fn width(&self) -> Length {
+            Length::Shrink
+        }
+
+        fn height(&self) -> Length {
+            Length::Shrink
+        }
+
+        fn layout(&self, _renderer: &Renderer, _limits: &layout::Limits) -> layout::Node {
+            layout::Node::new(Size::new(self.radius * 2.0, self.radius * 2.0))
+        }
+
+        fn draw(
+            &self,
+            renderer: &mut Renderer,
+            _style: &renderer::Style,
+            layout: Layout<'_>,
+            _cursor_position: Point,
+            _viewport: &Rectangle,
+        ) {
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: layout.bounds(),
+                    border_radius: 0.0,
+                    border_width: 10.0,
+                    border_color: Color::TRANSPARENT,
+                },
+                self.color,
+            );
+        }
+    }
+
+    impl<'a, Message, Renderer> Into<Element<'a, Message, Renderer>> for Block
+    where
+        Renderer: renderer::Renderer,
+    {
+        fn into(self) -> Element<'a, Message, Renderer> {
+            Element::new(self)
+        }
+    }
 }
