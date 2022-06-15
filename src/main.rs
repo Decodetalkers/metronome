@@ -3,17 +3,22 @@ use iced::{
     Row, Settings, Slider, Text,
 };
 
+mod block; 
 //use iced::{text_input, TextInput};
 fn main() -> iced::Result {
     Metronome::run(Settings::default())
     //Counter::run(Settings::default())
 }
-//#[derive(Default)]
+/// Metronome has
+/// lenght in , first is length, second is location
 struct Metronome {
     ticks: u64,
     start: bool,
-    left: bool,
+    /// length and location
+    length: (usize, usize),
     start_button: button::State,
+    add_step_button: button::State,
+    decrease_step_button: button::State,
     add_button: button::State,
     decrease_button: button::State,
     slider: slider::State,
@@ -24,17 +29,22 @@ pub enum PollMessage {
     Start,
     Continue,
     Update(f32),
+    AddStep,
+    DecreaseStep,
     Add,
     Decrease,
     Stop,
 }
 impl Metronome {
+    // create a new Metronome
     fn new() -> Self {
         Metronome {
             ticks: 100,
             start: false,
-            left: true,
+            length: (2, 0),
             start_button: button::State::default(),
+            add_step_button: button::State::default(),
+            decrease_step_button: button::State::default(),
             add_button: button::State::default(),
             decrease_button: button::State::default(),
             slider: slider::State::default(),
@@ -65,13 +75,29 @@ impl Application for Metronome {
             PollMessage::Start => {
                 let time = self.ticks;
                 self.start = true;
-                self.left = !self.left;
+                //self.left = !self.left;
                 Command::perform(
                     async move {
                         tokio::time::sleep(tokio::time::Duration::from_nanos(time)).await;
                     },
                     |_| PollMessage::Continue,
                 )
+            }
+            PollMessage::AddStep => {
+                let (length, _) = self.length;
+                if length < 6 {
+                    self.length.0 += 1;
+                    self.length.1 = 0;
+                }
+                Command::none()
+            }
+            PollMessage::DecreaseStep => {
+                let (length, _) = self.length;
+                if length > 2 {
+                    self.length.0 -= 1;
+                    self.length.1 = 0;
+                }
+                Command::none()
             }
             PollMessage::Add => {
                 if self.ticks < 1000 {
@@ -86,6 +112,12 @@ impl Application for Metronome {
                 Command::none()
             }
             PollMessage::Continue => {
+                let (length, local) = self.length;
+                if local < length - 1 {
+                    self.length.1 += 1;
+                } else {
+                    self.length.1 = 0;
+                }
                 let (_stream, handle) = rodio::OutputStream::try_default().unwrap();
                 let sink = rodio::Sink::try_new(&handle).unwrap();
 
@@ -95,7 +127,7 @@ impl Application for Metronome {
 
                 sink.sleep_until_end();
                 let time = self.ticks;
-                self.left = !self.left;
+                //self.left = !self.left;
                 if self.start {
                     Command::perform(
                         async move {
@@ -127,6 +159,26 @@ impl Application for Metronome {
                 .max_width(540)
                 .align_items(Alignment::Center)
                 .push(Text::new("Metronome").size(60))
+                .push({
+                    let mut shown = Row::new();
+                    let (length, location) = self.length;
+                    for i in 0..length {
+                        shown = shown.push(block::Block::new(
+                            20.0,
+                            if i == location {
+                                Color::BLACK
+                            } else {
+                                Color::from_rgb(0.9, 0.8, 0.9)
+                            },
+                            if i == location && i == 0 {
+                                block::Kind::Squre
+                            } else {
+                                block::Kind::Dot
+                            },
+                        ))
+                    }
+                    shown
+                })
                 .push(
                     Row::new()
                         .spacing(10)
@@ -154,6 +206,20 @@ impl Application for Metronome {
                 )
                 .push(Text::new(format!("{} BPM", self.ticks)).size(50))
                 .push(
+                    Row::new()
+                        .push(
+                            Button::new(&mut self.decrease_step_button, Text::new("D").size(30))
+                                .on_press(PollMessage::DecreaseStep)
+                                .style(style::Button::Liner),
+                        )
+                        .push(block::Spring)
+                        .push(
+                            Button::new(&mut self.add_step_button, Text::new("A").size(30))
+                                .on_press(PollMessage::AddStep)
+                                .style(style::Button::Liner),
+                        ),
+                )
+                .push(
                     Button::new(
                         &mut self.start_button,
                         if self.start {
@@ -169,25 +235,6 @@ impl Application for Metronome {
                     })
                     .width(iced::Length::Shrink)
                     .style(style::Button::Primary),
-                )
-                .push(
-                    Row::new()
-                        .push(block::Block::new(
-                            100.0,
-                            if self.left {
-                                Color::BLACK
-                            } else {
-                                Color::from_rgb(0.9, 0.8, 0.9)
-                            },
-                        ))
-                        .push(block::Block::new(
-                            100.0,
-                            if !self.left {
-                                Color::BLACK
-                            } else {
-                                Color::from_rgb(0.9, 0.8, 0.9)
-                            },
-                        )),
                 ),
         )
         .height(iced::Length::Fill)
@@ -215,68 +262,6 @@ mod style {
                 text_color: Color::WHITE,
                 ..button::Style::default()
             }
-        }
-    }
-}
-
-mod block {
-    use iced_native::layout::{self, Layout};
-    use iced_native::renderer;
-    use iced_native::{Color, Element, Length, Point, Rectangle, Size, Widget};
-
-    pub struct Block {
-        radius: f32,
-        color: Color,
-    }
-
-    impl Block {
-        pub fn new(radius: f32, color: Color) -> Self {
-            Self { radius, color }
-        }
-    }
-
-    impl<Message, Renderer> Widget<Message, Renderer> for Block
-    where
-        Renderer: renderer::Renderer,
-    {
-        fn width(&self) -> Length {
-            Length::Shrink
-        }
-
-        fn height(&self) -> Length {
-            Length::Shrink
-        }
-
-        fn layout(&self, _renderer: &Renderer, _limits: &layout::Limits) -> layout::Node {
-            layout::Node::new(Size::new(self.radius * 2.0, self.radius * 2.0))
-        }
-
-        fn draw(
-            &self,
-            renderer: &mut Renderer,
-            _style: &renderer::Style,
-            layout: Layout<'_>,
-            _cursor_position: Point,
-            _viewport: &Rectangle,
-        ) {
-            renderer.fill_quad(
-                renderer::Quad {
-                    bounds: layout.bounds(),
-                    border_radius: 0.0,
-                    border_width: 10.0,
-                    border_color: Color::TRANSPARENT,
-                },
-                self.color,
-            );
-        }
-    }
-
-    impl<'a, Message, Renderer> Into<Element<'a, Message, Renderer>> for Block
-    where
-        Renderer: renderer::Renderer,
-    {
-        fn into(self) -> Element<'a, Message, Renderer> {
-            Element::new(self)
         }
     }
 }
