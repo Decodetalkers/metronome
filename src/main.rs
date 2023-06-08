@@ -5,6 +5,8 @@ use iced::{
 
 mod block;
 
+static MUSIC: &[u8] = include_bytes!("../assets/metronome.wav");
+
 fn main() -> iced::Result {
     Metronome::run(Settings::default())
 }
@@ -108,8 +110,8 @@ impl Application for Metronome {
                 let (_stream, handle) = rodio::OutputStream::try_default().unwrap();
                 let sink = rodio::Sink::try_new(&handle).unwrap();
 
-                let file = std::fs::File::open("assets/metronome.wav").unwrap();
-                let a = std::io::BufReader::new(file);
+                let buffer = std::io::Cursor::new(MUSIC);
+                let a = std::io::BufReader::new(buffer);
                 sink.append(rodio::Decoder::new(a).unwrap());
 
                 sink.sleep_until_end();
