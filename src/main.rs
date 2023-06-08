@@ -37,6 +37,7 @@ impl Metronome {
         }
     }
 }
+
 impl Application for Metronome {
     type Message = PollMessage;
     type Executor = iced::executor::Default;

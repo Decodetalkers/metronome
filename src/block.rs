@@ -45,12 +45,12 @@ where
     }
 }
 
-impl<'a, Message, Renderer> Into<Element<'a, Message, Renderer>> for Spring
+impl<'a, Message, Renderer> From<Spring> for Element<'a, Message, Renderer>
 where
     Renderer: renderer::Renderer,
 {
-    fn into(self) -> Element<'a, Message, Renderer> {
-        Element::new(self)
+    fn from(val: Spring) -> Self {
+        Element::new(val)
     }
 }
 
@@ -123,11 +123,11 @@ where
     }
 }
 
-impl<'a, Message, Renderer> Into<Element<'a, Message, Renderer>> for Block
+impl<'a, Message, Renderer> From<Block> for Element<'a, Message, Renderer>
 where
     Renderer: renderer::Renderer,
 {
-    fn into(self) -> Element<'a, Message, Renderer> {
-        Element::new(self)
+    fn from(val: Block) -> Self {
+        Element::new(val)
     }
 }
