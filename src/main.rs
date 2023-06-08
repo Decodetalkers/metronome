@@ -1,29 +1,20 @@
 use iced::{
-    button, slider, Alignment, Application, Button, Color, Column, Command, Container, Element,
-    Row, Settings, Slider, Text,
+    widget::button, widget::Button, widget::Column, widget::Container, widget::Row, widget::Slider,
+    widget::Text, Alignment, Application, Color, Command, Element, Settings, Theme,
 };
 
-mod block; 
-//use iced::{text_input, TextInput};
+mod block;
+
 fn main() -> iced::Result {
     Metronome::run(Settings::default())
-    //Counter::run(Settings::default())
 }
-/// Metronome has
-/// lenght in , first is length, second is location
+
 struct Metronome {
     ticks: u64,
     start: bool,
-    /// length and location
     length: (usize, usize),
-    start_button: button::State,
-    add_step_button: button::State,
-    decrease_step_button: button::State,
-    add_button: button::State,
-    decrease_button: button::State,
-    slider: slider::State,
-    //text: text_input::State,
 }
+
 #[derive(Debug, Clone)]
 pub enum PollMessage {
     Start,
@@ -35,6 +26,7 @@ pub enum PollMessage {
     Decrease,
     Stop,
 }
+
 impl Metronome {
     // create a new Metronome
     fn new() -> Self {
@@ -42,13 +34,6 @@ impl Metronome {
             ticks: 100,
             start: false,
             length: (2, 0),
-            start_button: button::State::default(),
-            add_step_button: button::State::default(),
-            decrease_step_button: button::State::default(),
-            add_button: button::State::default(),
-            decrease_button: button::State::default(),
-            slider: slider::State::default(),
-            //text: text_input::State::default(),
         }
     }
 }
@@ -56,6 +41,7 @@ impl Application for Metronome {
     type Message = PollMessage;
     type Executor = iced::executor::Default;
     type Flags = ();
+    type Theme = Theme;
     fn new(_flags: ()) -> (Metronome, Command<PollMessage>) {
         (Self::new(), Command::none())
     }
@@ -151,7 +137,7 @@ impl Application for Metronome {
         //}
     }
 
-    fn view(&mut self) -> Element<PollMessage> {
+    fn view(&self) -> Element<PollMessage> {
         Container::new(
             Column::new()
                 .spacing(30)
@@ -183,58 +169,39 @@ impl Application for Metronome {
                     Row::new()
                         .spacing(10)
                         .push(
-                            Button::new(&mut self.decrease_button, Text::new(" -").size(20))
-                                .on_press(PollMessage::Decrease)
-                                .style(style::Button::Liner),
+                            button(" -").on_press(PollMessage::Decrease), //.style(style::Button::Liner),
                         )
                         .push(
-                            Slider::new(
-                                &mut self.slider,
-                                1.0..=1000.0,
-                                self.ticks as f32,
-                                PollMessage::Update,
-                            )
-                            .step(1.0)
-                            .width(iced::Length::Fill)
-                            .height(30),
+                            Slider::new(1.0..=1000.0, self.ticks as f32, PollMessage::Update)
+                                .step(1.0)
+                                .width(iced::Length::Fill)
+                                .height(30),
                         )
                         .push(
-                            Button::new(&mut self.add_button, Text::new("+").size(20))
-                                .on_press(PollMessage::Add)
-                                .style(style::Button::Liner),
+                            button("+").on_press(PollMessage::Add), //.style(style::Button::Liner),
                         ),
                 )
                 .push(Text::new(format!("{} BPM", self.ticks)).size(50))
                 .push(
                     Row::new()
-                        .push(
-                            Button::new(&mut self.decrease_step_button, Text::new("D").size(30))
-                                .on_press(PollMessage::DecreaseStep)
-                                .style(style::Button::Liner),
-                        )
+                        .push(button("D").on_press(PollMessage::DecreaseStep))
                         .push(block::Spring)
                         .push(
-                            Button::new(&mut self.add_step_button, Text::new("A").size(30))
-                                .on_press(PollMessage::AddStep)
-                                .style(style::Button::Liner),
+                            button("A").on_press(PollMessage::AddStep), //.style(style::Button::Liner),
                         ),
                 )
                 .push(
-                    Button::new(
-                        &mut self.start_button,
-                        if self.start {
-                            Text::new("Stop").size(60)
-                        } else {
-                            Text::new("Start").size(60)
-                        },
-                    )
+                    Button::new(if self.start {
+                        Text::new("Stop").size(60)
+                    } else {
+                        Text::new("Start").size(60)
+                    })
                     .on_press(if self.start {
                         PollMessage::Stop
                     } else {
                         PollMessage::Start
                     })
-                    .width(iced::Length::Shrink)
-                    .style(style::Button::Primary),
+                    .width(iced::Length::Shrink), //.style(style::Button::Primary),
                 ),
         )
         .height(iced::Length::Fill)
@@ -244,24 +211,24 @@ impl Application for Metronome {
         .into()
     }
 }
-mod style {
-    use iced::{button, Background, Color, Vector};
-    pub enum Button {
-        Primary,
-        Liner,
-    }
-    impl button::StyleSheet for Button {
-        fn active(&self) -> button::Style {
-            button::Style {
-                background: Some(Background::Color(match self {
-                    Button::Primary => Color::from_rgb(0.11, 0.42, 0.87),
-                    Button::Liner => Color::from_rgb(0.9, 0.7, 0.8),
-                })),
-                border_radius: 12.0,
-                shadow_offset: Vector::new(1.0, 1.0),
-                text_color: Color::WHITE,
-                ..button::Style::default()
-            }
-        }
-    }
-}
+//mod style {
+//    use iced::{widget::button, Background, Color, Vector};
+//    pub enum Button {
+//        Primary,
+//        Liner,
+//    }
+//    impl button::StyleSheet for Button {
+//        fn active(&self) -> button::Style {
+//            button::Style {
+//                background: Some(Background::Color(match self {
+//                    Button::Primary => Color::from_rgb(0.11, 0.42, 0.87),
+//                    Button::Liner => Color::from_rgb(0.9, 0.7, 0.8),
+//                })),
+//                border_radius: 12.0,
+//                shadow_offset: Vector::new(1.0, 1.0),
+//                text_color: Color::WHITE,
+//                ..button::Style::default()
+//            }
+//        }
+//    }
+//}

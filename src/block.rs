@@ -1,5 +1,6 @@
 use iced_native::layout::{self, Layout};
-use iced_native::renderer;
+use iced_native::renderer::{self, BorderRadius};
+use iced_native::widget::Tree;
 use iced_native::{Color, Element, Length, Point, Rectangle, Size, Widget};
 pub enum Kind {
     Dot,
@@ -24,7 +25,9 @@ where
 
     fn draw(
         &self,
+        _state: &Tree,
         renderer: &mut Renderer,
+        _theme: &Renderer::Theme,
         _style: &renderer::Style,
         layout: Layout<'_>,
         _cursor_position: Point,
@@ -33,7 +36,7 @@ where
         renderer.fill_quad(
             renderer::Quad {
                 bounds: layout.bounds(),
-                border_radius: 0.0,
+                border_radius: BorderRadius::from(0.0),
                 border_width: 10.0,
                 border_color: Color::TRANSPARENT,
             },
@@ -85,7 +88,9 @@ where
 
     fn draw(
         &self,
+        _state: &Tree,
         renderer: &mut Renderer,
+        _theme: &Renderer::Theme,
         _style: &renderer::Style,
         layout: Layout<'_>,
         _cursor_position: Point,
@@ -96,7 +101,7 @@ where
                 renderer.fill_quad(
                     renderer::Quad {
                         bounds: layout.bounds(),
-                        border_radius: 0.0,
+                        border_radius: BorderRadius::from(0.0),
                         border_width: 10.0,
                         border_color: Color::TRANSPARENT,
                     },
@@ -107,7 +112,7 @@ where
                 renderer.fill_quad(
                     renderer::Quad {
                         bounds: layout.bounds(),
-                        border_radius: self.radius,
+                        border_radius: BorderRadius::from(self.radius),
                         border_width: 10.0,
                         border_color: Color::TRANSPARENT,
                     },
